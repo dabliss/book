@@ -7,7 +7,8 @@ http://dx.doi.org/10.1016/S0896-6273(02)01092-9
 """
 from collections import OrderedDict
 
-from brian2 import *
+import brian2
+import numpy as np
 
 #=========================================================================================
 # Equations
@@ -53,52 +54,52 @@ equations = dict(
 
 modelparams = dict(
     # Common LIF
-    V_L    = -70*mV,
-    Vth    = -50*mV,
-    Vreset = -55*mV,
+    V_L    = -70*brian2.mV,
+    Vth    = -50*brian2.mV,
+    Vreset = -55*brian2.mV,
 
     # Excitatory LIF
-    gE        = 25*nS,
-    tau_m_E   = 20*ms,
-    tau_ref_E = 2*ms,
+    gE        = 25*brian2.nS,
+    tau_m_E   = 20*brian2.ms,
+    tau_ref_E = 2*brian2.ms,
 
     # Inhibitory LIF
-    gI        = 20*nS,
-    tau_m_I   = 10*ms,
-    tau_ref_I = 1*ms,
+    gI        = 20*brian2.nS,
+    tau_m_I   = 10*brian2.ms,
+    tau_ref_I = 1*brian2.ms,
 
     # Reversal potentials
-    V_E = 0*mV,
-    V_I = -70*mV,
+    V_E = 0*brian2.mV,
+    V_I = -70*brian2.mV,
 
     # NMDA nonlinearity
-    a = 0.062*mV**-1,
+    a = 0.062*brian2.mV**-1,
     b = 3.57,
 
     # Synaptic time constants
-    tauAMPA = 2*ms,
-    tau_x   = 2*ms,
-    tauNMDA = 100*ms,
-    alpha   = 0.5*kHz,
-    tauGABA = 5*ms,
-    delay   = 0.5*ms,
+    tauAMPA = 2*brian2.ms,
+    tau_x   = 2*brian2.ms,
+    tauNMDA = 100*brian2.ms,
+    alpha   = 0.5*brian2.kHz,
+    tauGABA = 5*brian2.ms,
+    delay   = 0.5*brian2.ms,
 
     # External synaptic conductances
-    gAMPA_ext_E = 2.1*nS,
-    gAMPA_ext_I = 1.62*nS,
+    gAMPA_ext_E = 2.1*brian2.nS,
+    gAMPA_ext_I = 1.62*brian2.nS,
 
     # Unscaled recurrent synaptic conductances (onto excitatory)
-    gAMPA_E = 80*nS,
-    gNMDA_E = 264*nS,
-    gGABA_E = 520*nS,
+    gAMPA_E = 80*brian2.nS,
+    gNMDA_E = 264*brian2.nS,
+    gGABA_E = 520*brian2.nS,
 
     # Unscaled recurrent synaptic conductances (onto inhibitory)
-    gAMPA_I = 64*nS,
-    gNMDA_I = 208*nS,
-    gGABA_I = 400*nS,
+    gAMPA_I = 64*brian2.nS,
+    gNMDA_I = 208*brian2.nS,
+    gGABA_I = 400*brian2.nS,
 
     # Background noise
-    nu_ext = 2.4*kHz,
+    nu_ext = 2.4*brian2.kHz,
 
     # Number of neurons
     N_E = 1600,
@@ -124,16 +125,18 @@ class Stimulus(object):
         self.set_coh(coh)
 
     def s1(self, T):
-        t_array = np.arange(0, T + defaultclock.dt, defaultclock.dt)
-        vals = np.zeros_like(t_array) * Hz
+        t_array = np.arange(0, T + brian2.defaultclock.dt,
+                            brian2.defaultclock.dt) * brian2.second
+        vals = np.zeros_like(t_array / brian2.second) * brian2.Hz
         vals[np.logical_and(self.Ton <= t_array, t_array < self.Toff)] = self.pos
-        return TimedArray(vals, defaultclock.dt)
+        return brian2.TimedArray(vals, brian2.defaultclock.dt)
 
     def s2(self, T):
-        t_array = np.arange(0, T + defaultclock.dt, defaultclock.dt)
-        vals = np.zeros_like(t_array) * Hz
+        t_array = np.arange(0, T + brian2.defaultclock.dt,
+                            brian2.defaultclock.dt) * brian2.second
+        vals = np.zeros_like(t_array / brian2.second) * brian2.Hz
         vals[np.logical_and(self.Ton <= t_array, t_array < self.Toff)] = self.neg
-        return TimedArray(vals, defaultclock.dt)
+        return brian2.TimedArray(vals, brian2.defaultclock.dt)
 
     def set_coh(self, coh):
         self.pos = self.mu0*(1 + coh/100)
@@ -188,13 +191,13 @@ class Model(object):
 
         # E/I populations
         for label in ['E', 'I']:
-            net[label] = NeuronGroup(params['N_'+label],
-                                     equations[label],
-                                     method='rk2',
-                                     threshold='V > Vth',
-                                     reset='V = Vreset',
-                                     refractory=params['tau_ref_'+label],
-                                     namespace=params)
+            net[label] = brian2.NeuronGroup(params['N_'+label],
+                                            equations[label],
+                                            method='rk2',
+                                            threshold='V > Vth',
+                                            reset='V = Vreset',
+                                            refractory=params['tau_ref_'+label],
+                                            namespace=params)
 
         # Excitatory subpopulations
         exc[0] = net['E'][:params['N0']]
@@ -206,9 +209,9 @@ class Model(object):
         #---------------------------------------------------------------------------------
 
         for label in ['E', 'I']:
-            net['pg'+label] = PoissonGroup(params['N_'+label], params['nu_ext'])
-            net['ic'+label] = Synapses(net['pg'+label], net[label],
-                                       on_pre='sAMPA_ext += 1', delay=delay)
+            net['pg'+label] = brian2.PoissonGroup(params['N_'+label], params['nu_ext'])
+            net['ic'+label] = brian2.Synapses(net['pg'+label], net[label],
+                                              on_pre='sAMPA_ext += 1', delay=delay)
             net['ic'+label].connect(condition='i == j')
 
         #---------------------------------------------------------------------------------
@@ -216,15 +219,17 @@ class Model(object):
         #---------------------------------------------------------------------------------
 
         # Change pre-synaptic variables
-        net['icAMPA'] = Synapses(net['E'], net['E'], on_pre='sAMPA += 1', delay=delay)
+        net['icAMPA'] = brian2.Synapses(net['E'], net['E'], on_pre='sAMPA += 1',
+                                        delay=delay)
         net['icAMPA'].connect(condition='i == j')
-        net['icNMDA'] = Synapses(net['E'], net['E'], on_pre='x += 1', delay=delay)
+        net['icNMDA'] = brian2.Synapses(net['E'], net['E'], on_pre='x += 1', delay=delay)
         net['icNMDA'].connect(condition='i == j')
-        net['icGABA'] = Synapses(net['I'], net['I'], on_pre='sGABA += 1', delay=delay)
+        net['icGABA'] = brian2.Synapses(net['I'], net['I'], on_pre='sGABA += 1',
+                                        delay=delay)
         net['icGABA'].connect(condition='i == j')
 
         # Link pre-synaptic variables to post-synaptic variables
-        @network_operation(when='start')
+        @brian2.network_operation(when='start')
         def recurrent_input():
             # AMPA
             S = self.W.dot([sum(self.exc[ind].sAMPA) for ind in xrange(3)])
@@ -252,9 +257,10 @@ class Model(object):
         global s2
         s2 = stimulus.s2(T)
         for ind, sname in zip([1, 2], ['s1', 's2']):
-            net['pg'+str(ind)] = PoissonGroup(params['N'+str(ind)], '%s(t)' % sname)
-            net['ic'+str(ind)] = Synapses(net['pg'+str(ind)], exc[ind],
-                                          on_pre='sAMPA_ext += 1', delay=delay)
+            net['pg'+str(ind)] = brian2.PoissonGroup(params['N'+str(ind)],
+                                                     '%s(t)' % sname)
+            net['ic'+str(ind)] = brian2.Synapses(net['pg'+str(ind)], exc[ind],
+                                                 on_pre='sAMPA_ext += 1', delay=delay)
             net['ic'+str(ind)].connect(condition='i == j')
 
         #---------------------------------------------------------------------------------
@@ -263,7 +269,7 @@ class Model(object):
 
         mons = OrderedDict()
         for label in ['E', 'I']:
-            mons['spikes'+label] = SpikeMonitor(net[label], record=True)
+            mons['spikes'+label] = brian2.SpikeMonitor(net[label], record=True)
 
         #---------------------------------------------------------------------------------
         # Setup
@@ -283,7 +289,7 @@ class Model(object):
         for label in ['E', 'I']:
             self.net[label].V = np.random.uniform(self.params['Vreset'],
                                                   self.params['Vth'],
-                                                  size=self.params['N_'+label]) * volt
+                                                  size=self.params['N_'+label]) * brian2.volt
             
         # Set synaptic variables to zero
         for par in ['sAMPA_ext', 'sAMPA', 'x', 'sNMDA']:
@@ -297,15 +303,15 @@ class Model(object):
 
 class Simulation(object):
     def __init__(self, modelparams, stimparams, sim_dt, T):
-        defaultclock.dt = sim_dt
+        brian2.defaultclock.dt = sim_dt
         self.stimulus = Stimulus(stimparams['Ton'], stimparams['Toff'],
                                  stimparams['mu0'], stimparams['coh'])
         self.model    = Model(modelparams, self.stimulus, T)
-        self.network  = Network(self.model.contained_objects)
+        self.network  = brian2.Network(self.model.contained_objects)
 
     def run(self, T, randseed=1):
         # Initialize random number generator
-        seed(randseed)
+        brian2.seed(randseed)
 
         # Initialize and run
         self.model.reinit()
@@ -329,14 +335,14 @@ class Simulation(object):
 
 if __name__ == '__main__':
     stimparams = dict(
-        Ton  = 0.5*second, # Stimulus onset
-        Toff = 1.5*second, # Stimulus offset
-        mu0  = 40*Hz,      # Input rate
+        Ton  = 0.5*brian2.second, # Stimulus onset
+        Toff = 1.5*brian2.second, # Stimulus offset
+        mu0  = 40*brian2.Hz,      # Input rate
         coh  = 1.6         # Percent coherence
         )
 
-    sim_dt = 0.02*ms
-    T  = 2*second
+    sim_dt = 0.02*brian2.ms
+    T  = 2*brian2.second
 
     sim = Simulation(modelparams, stimparams, sim_dt, T)
     sim.run(T, randseed=4)
